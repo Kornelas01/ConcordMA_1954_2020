@@ -1,0 +1,151 @@
+---
+title: "Concord, MA 1951-2020 (plants and birds)"
+author: "Karen Ornelas"
+date: "2024-03-05"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+load tidyverse
+```{r}
+install.packages("tidyverse")
+library(tidyverse)
+```
+
+read csv file 
+```{r}
+Concord_data <- read.csv("Concord_phenology_dataset.csv")
+```
+
+Remove all unnescary columns before turning the data into long format 
+```{r}
+Concord_data <- Concord_data [-c(4,5,6,7,8)]
+```
+
+
+Turn data into long format
+```{r}
+# change all data into interegers
+Concord_data <- Concord_data %>%
+  mutate(across(X1845:X2020, as.numeric))
+
+Concord_long <- Concord_data %>% 
+  pivot_longer(
+    cols = 5:125,
+    names_to = "year",
+    values_to = "DOY")
+```
+
+Take out the X from the year 
+```{r}
+Concord_long$year <-  
+  str_remove(
+    Concord_long$year, "X")
+```
+
+remove na in duration and this will also take out our ice out
+```{r}
+Concord_long <- 
+  Concord_long %>% 
+    drop_na()
+```
+
+
+add column for lat and long 
+```{r}
+Concord_long <- Concord_long %>%
+  mutate(Longitude = "-71.3333333")
+
+Concord_long <- Concord_long %>%
+  mutate(Latitude = "42.4500000")
+
+```
+
+Create a new test database with only scientfic name to match TSN
+```{r}
+install.packages("taxize")
+library(taxize)
+
+Concord_long$Scientific_name <- paste(Concord_long$Genus,Concord_long$Species)
+
+Concord_long <-  Concord_long %>% relocate(Scientific_name,.after = Species)
+
+tsn_df <- Concord_long %>%
+  distinct(Scientific_name)
+
+tsn_df <- tsn_df %>%
+  mutate(TSN = get_tsn(tsn_df$Scientific_name, rows = 1))
+
+```
+
+Take out the NAs from tsn_df 
+```{r}
+NA_TSN <- tsn_df[is.na(tsn_df$TSN), ] 
+```
+
+Use Fuzzy function in worldflora 
+```{r}
+install.packages("WorldFlora")
+library(WorldFlora)
+
+install.packages("fuzzyjoin")
+library(fuzzyjoin)
+
+options(timeout = max(1000, getOption("timeout")))
+
+WFO.download()
+
+WFO.remember("classification.csv")
+
+fuzzy_match <- WFO.match.fuzzyjoin(spec.data = NA_TSN$Scientific_name, WFO.data = WFO.data, fuzzydist.max = 2)
+
+# have WFO condense the above dataframe down to one clear match per species
+one_to_one <- WFO.one(fuzzy_match)
+
+# save the output so we don't have to run those again because they take up wild amounts of RAM!
+write_csv(one_to_one, "corrected_taxonomy.csv")
+
+#replace scientificName with correct ITIS accepted names to be able to find the TSN
+one_to_one$scientificName <- str_replace(one_to_one$scientificName,"Lysimachia arvensis", "Anagallis arvensis")
+one_to_one$scientificName <-str_replace(one_to_one$scientificName,"Scorzoneroides autumnalis", "Leontodon autumnalis")
+one_to_one$scientificName <-str_replace(one_to_one$scientificName,"Nemopanthes mucronata", "Ilex mucronata")
+one_to_one$scientificName <-str_replace(one_to_one$scientificName,"Muraltia pauciflora", "
+Polygala paucifolia")
+one_to_one$scientificName <-str_replace(one_to_one$scientificName,"Ailanthus altissima var. altissima", "Ailanthus altissima")
+one_to_one$scientificName <-str_replace(one_to_one$scientificName,"Athyrium filix-femina subsp. filix-femina", "Athyrium filix-femina")
+one_to_one$scientificName <-str_replace(one_to_one$scientificName,"Homalosorus pycnocarpos", "Diplazium pycnocarpon")
+one_to_one$scientificName <-str_replace(one_to_one$scientificName,"Botrychium virginianum subsp. virginianum", "Botrypus virginianus")
+one_to_one$scientificName <-str_replace(one_to_one$scientificName,"Cystopteris fragilis subsp. fragilis", "Cystopteris fragilis")
+one_to_one$scientificName <-str_replace(one_to_one$scientificName,"Dryopteris boottii", "Dryopteris X boottii")
+one_to_one$scientificName <-str_replace(one_to_one$scientificName,"Onoclea pensylvatica", "Matteuccia struthiopteris var. pensylvanica")
+
+
+# run the updated names through `taxize` to get updates TSN
+one_to_one_TSN <- one_to_one %>% 
+  mutate(TSN = get_tsn(one_to_one$scientificName, rows = 1))
+
+
+# input TSN for remaing NA values
+one_to_one_TSN <- one_to_one_TSN %>% 
+  mutate(
+    TSN = ifelse(spec.name == "Polygala pauciflora", "29306", TSN))
+
+one_to_one_TSN <- one_to_one_TSN %>% 
+  mutate(
+    TSN = ifelse(spec.name == "Aspidium vari incisum", "504531", TSN))
+
+```
+
+
+```{r}
+
+```
+
+
+```
+
+
+
