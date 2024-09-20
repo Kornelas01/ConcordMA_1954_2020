@@ -66,7 +66,7 @@ Concord_long <- Concord_long %>%
 
 Create a new test database with only scientfic name to match TSN
 ```{r}
-install.packages("taxize")
+#install.packages("taxize")
 library(taxize)
 
 Concord_long$Scientific_name <- paste(Concord_long$Genus,Concord_long$Species)
@@ -76,7 +76,7 @@ Concord_long <-  Concord_long %>% relocate(Scientific_name,.after = Species)
 tsn_df <- Concord_long %>%
   distinct(Scientific_name)
 
-tsn_df <- tsn_df %>%
+tsn_df <- tsn_df %>% 
   mutate(TSN = get_tsn(tsn_df$Scientific_name, rows = 1))
 
 ```
@@ -88,15 +88,15 @@ NA_TSN <- tsn_df[is.na(tsn_df$TSN), ]
 
 Use Fuzzy function in worldflora 
 ```{r}
-install.packages("WorldFlora")
+#install.packages("WorldFlora")
 library(WorldFlora)
 
-install.packages("fuzzyjoin")
+#install.packages("fuzzyjoin")
 library(fuzzyjoin)
 
 options(timeout = max(1000, getOption("timeout")))
 
-WFO.download()
+#WFO.download()
 
 WFO.remember("classification.csv")
 
@@ -128,7 +128,7 @@ one_to_one_TSN <- one_to_one %>%
   mutate(TSN = get_tsn(one_to_one$scientificName, rows = 1))
 
 
-# input TSN for remaing NA values
+# input TSN for remaining NA values
 one_to_one_TSN <- one_to_one_TSN %>% 
   mutate(
     TSN = ifelse(spec.name == "Polygala pauciflora", "29306", TSN))
@@ -137,9 +137,104 @@ one_to_one_TSN <- one_to_one_TSN %>%
   mutate(
     TSN = ifelse(spec.name == "Aspidium vari incisum", "504531", TSN))
 
+one_to_one_TSN <- one_to_one_TSN %>% 
+  mutate(
+    TSN = ifelse(spec.name == "Rhamnus fragularia", "28579", TSN))
+
+one_to_one_TSN <- one_to_one_TSN %>% 
+  mutate(
+    TSN = ifelse(spec.name == "Scutellaria laterifolia", "32765", TSN))
+
+```
+
+Rename the scientific_name column in one to one TSN to match test_df
+```{r}
+colnames(one_to_one_TSN)[colnames(one_to_one_TSN) == 'scientificName'] <- 'Scientific_name'
+```
+
+Change TSN from chr to numeric
+Relocate positions of columns to match test_df
+```{r}
+tsn_df <- tsn_df %>% 
+  mutate(TSN = as.numeric(tsn_df$TSN)) 
+
+one_to_one_TSN <- one_to_one_TSN %>% 
+  mutate(TSN = as.numeric(one_to_one_TSN$TSN)) 
+
+one_to_one_TSN <-  one_to_one_TSN %>% 
+  relocate(Scientific_name, .before = spec.name.ORIG)
+
+one_to_one_TSN <-  one_to_one_TSN %>% 
+  relocate(TSN, .after = Scientific_name)
+```
+
+Rename all misspelled Scientific_name in test_df to correct name located in one_to_one_TSN
+Replace all NA values in test_df with values from one_to_one_TSN
+```{r}
+### don't erase until you run the full program -- i'm trying to see if it actually works 
+misspelled <- one_to_one_TSN$spec.name
+
+for (i in 1:nrow(tsn_df)) {
+  if (tsn_df$Scientific_name[i] %in% misspelled){
+    index <- which(one_to_one_TSN$spec.name == tsn_df$Scientific_name [i])
+    tsn_df$Scientific_name[i] <- one_to_one_TSN$Scientific_name[index]
+  } else {
+    tsn_df$Scientific_name[i] <- tsn_df$Scientific_name [i]
+  }
+}
+### run this after top for loop is confirmed to work
+for (i in 1:nrow(tsn_df)) {
+  if (is.na(tsn_df$TSN[i])) {
+    index <- which(one_to_one_TSN$Scientific_name == tsn_df$Scientific_name[i])
+    if (length(index) > 0) {
+      tsn_df$TSN[i] <- one_to_one_TSN$TSN[index]
+    } else {
+      # Handle the case where there is no match if necessary
+      # e.g., tsn_df$TSN[i] <- NA or tsn_df$TSN[i] <- some_default_value
+    }
+  }
+  # The else block is unnecessary since it doesn't change anything.
+}
+
+  
+
+
+i=11
+```
+
+Fix all misspelled names in Concord_Long -- do we fix species and genus 
+```{r}
+
+Concord_corrected_name <- read.csv("corrected_taxonomy.csv")
+
+misspelled <- Concord_corrected_name$spec.name
+
+for (i in 1:nrow(Concord_long)) {
+  if (str_trim(Concord_long$Scientific_name[i]) %in% misspelled) {
+    index <- which(Concord_corrected_name$spec.name.ORIG == str_trim(Concord_long$Scientific_name[i]))
+    
+    # Check if index is not empty
+    if (length(index) > 0) {
+      Concord_long$Scientific_name[i] <- Concord_corrected_name$scientificName[index]
+    } else {
+      # Handle the case where there is no match, if necessary
+      # e.g., Concord_long$Scientific_name[i] <- Concord_long$Scientific_name[i]
+    }
+  } 
+  # The else block is unnecessary since it does nothing.
+}
+
+
 ```
 
 
+Final step
+```{r}
+Clean_Concord_Data <- full_join(Concord_long, tsn_df, relationship = "many-to-many")
+)
+
+NA_TSN_Clean <- Clean_Concord_Data[is.na(Clean_Concord_Data$TSN), ] 
+write_csv(Clean_Concord_Data,"Pennie_Clean_Data")
 ```{r}
 
 ```
