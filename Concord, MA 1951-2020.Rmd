@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 load tidyverse
 ```{r}
-install.packages("tidyverse")
+#install.packages("tidyverse")
 library(tidyverse)
 ```
 
@@ -62,6 +62,13 @@ Concord_long <- Concord_long %>%
 Concord_long <- Concord_long %>%
   mutate(Latitude = "42.4500000")
 
+```
+
+```{r}
+## Convert DOY to year month date
+Concord_long <- Concord_long %>% mutate(date= as.Date(DOY-1, 
+              origin=paste0(year,"-01-01"))) 
+            
 ```
 
 Create a new test database with only scientfic name to match TSN
@@ -145,15 +152,17 @@ one_to_one_TSN <- one_to_one_TSN %>%
   mutate(
     TSN = ifelse(spec.name == "Scutellaria laterifolia", "32765", TSN))
 
+
+
 ```
 
-Rename the scientific_name column in one to one TSN to match test_df
+Rename the scientific_name column in one to one TSN to match tsn_df
 ```{r}
 colnames(one_to_one_TSN)[colnames(one_to_one_TSN) == 'scientificName'] <- 'Scientific_name'
 ```
 
 Change TSN from chr to numeric
-Relocate positions of columns to match test_df
+Relocate positions of columns to match tsn_df
 ```{r}
 tsn_df <- tsn_df %>% 
   mutate(TSN = as.numeric(tsn_df$TSN)) 
@@ -168,10 +177,16 @@ one_to_one_TSN <-  one_to_one_TSN %>%
   relocate(TSN, .after = Scientific_name)
 ```
 
-Rename all misspelled Scientific_name in test_df to correct name located in one_to_one_TSN
-Replace all NA values in test_df with values from one_to_one_TSN
+Rename all misspelled Scientific_name in tsn_df to correct name located in one_to_one_TSN
+Replace all NA values in tsn_df with values from one_to_one_TSN
 ```{r}
-### don't erase until you run the full program -- i'm trying to see if it actually works 
+tsn_df <- tsn_df %>% 
+  mutate(Scientific_name = str_squish(Scientific_name)) %>% 
+  drop_na(Scientific_name)
+one_to_one_TSN <- one_to_one_TSN %>% 
+  mutate(spec.name = str_squish(spec.name),
+         Scientific_name = str_squish(Scientific_name))
+
 misspelled <- one_to_one_TSN$spec.name
 
 for (i in 1:nrow(tsn_df)) {
@@ -182,24 +197,30 @@ for (i in 1:nrow(tsn_df)) {
     tsn_df$Scientific_name[i] <- tsn_df$Scientific_name [i]
   }
 }
-### run this after top for loop is confirmed to work
-for (i in 1:nrow(tsn_df)) {
-  if (is.na(tsn_df$TSN[i])) {
-    index <- which(one_to_one_TSN$Scientific_name == tsn_df$Scientific_name[i])
-    if (length(index) > 0) {
-      tsn_df$TSN[i] <- one_to_one_TSN$TSN[index]
-    } else {
-      # Handle the case where there is no match if necessary
-      # e.g., tsn_df$TSN[i] <- NA or tsn_df$TSN[i] <- some_default_value
-    }
-  }
-  # The else block is unnecessary since it doesn't change anything.
-}
 
+
+### run this after top for loop is confirmed to work
+for (i in 1:nrow(tsn_df)){
+  
+  if (is.na(tsn_df$TSN[i])){
+    
+    if (str_detect(tsn_df$Scientific_name[i], "sp.")) {
+      index <- which(one_to_one_TSN$spec.name.ORIG == tsn_df$Scientific_name [i])
+      tsn_df$TSN[i] <-  one_to_one_TSN$TSN[index]
+    } else {
+      index <- which(one_to_one_TSN$Scientific_name == tsn_df$Scientific_name [i])
+      tsn_df$TSN[i] <-  one_to_one_TSN$TSN[index]
+    }
+    
+  } else {
+    tsn_df$TSN [i] == tsn_df$TSN [i]
+  }
+}
   
 
 
-i=11
+i=159
+
 ```
 
 Fix all misspelled names in Concord_Long -- do we fix species and genus 
@@ -207,35 +228,35 @@ Fix all misspelled names in Concord_Long -- do we fix species and genus
 
 Concord_corrected_name <- read.csv("corrected_taxonomy.csv")
 
+Concord_long <- Concord_long %>% 
+  mutate(Scientific_name = str_squish(Scientific_name),
+         Scientific_name = str_trim(Scientific_name))
+Concord_corrected_name <- Concord_corrected_name %>% 
+  mutate(spec.name.ORIG = str_squish(spec.name.ORIG),
+         ScientificName = str_squish(scientificName),
+         spec.name.ORIG = str_trim(spec.name.ORIG),
+         ScientificName = str_trim(scientificName))
+
 misspelled <- Concord_corrected_name$spec.name
-
 for (i in 1:nrow(Concord_long)) {
-  if (str_trim(Concord_long$Scientific_name[i]) %in% misspelled) {
+  if (str_trim(Concord_long$Scientific_name[i]) %in% misspelled){
     index <- which(Concord_corrected_name$spec.name.ORIG == str_trim(Concord_long$Scientific_name[i]))
-    
-    # Check if index is not empty
-    if (length(index) > 0) {
-      Concord_long$Scientific_name[i] <- Concord_corrected_name$scientificName[index]
-    } else {
-      # Handle the case where there is no match, if necessary
-      # e.g., Concord_long$Scientific_name[i] <- Concord_long$Scientific_name[i]
-    }
-  } 
-  # The else block is unnecessary since it does nothing.
+    Concord_long$Scientific_name[i] <- Concord_corrected_name$scientificName[index]
+  } else {
+    Concord_long$Scientific_name[i] <- Concord_long$Scientific_name [i]
+  }
 }
-
 
 ```
 
 
 Final step
 ```{r}
-Clean_Concord_Data <- full_join(Concord_long, tsn_df, relationship = "many-to-many")
-)
+tsn_df <- tsn_df %>% distinct()
 
-NA_TSN_Clean <- Clean_Concord_Data[is.na(Clean_Concord_Data$TSN), ] 
-write_csv(Clean_Concord_Data,"Pennie_Clean_Data")
-```{r}
+Clean_Concord_Data <- full_join(Concord_long, tsn_df)
+
+write_csv(Clean_Concord_Data,"Clean_Thoreau_Data")
 
 ```
 
