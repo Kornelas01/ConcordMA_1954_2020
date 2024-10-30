@@ -132,16 +132,20 @@ NA_TSN <- tsn_df[is.na(tsn_df$TSN), ]
 ```{r}
 ### Use Fuzzy function in WorldFlora to find the corrected scientific name for any mispelled scientific names
 
-#install.packages("WorldFlora")
-library(WorldFlora)
+# install.packages("WorldFlora")
+# library(WorldFlora)
+# 
+# install.packages("fuzzyjoin")
+# library(fuzzyjoin)
+#  
+# options(timeout = max(1000, getOption("timeout")))
+# 
+# WFO.download()
+```
 
-#install.packages("fuzzyjoin")
-library(fuzzyjoin)
-
-options(timeout = max(1000, getOption("timeout")))
-
-#WFO.download()
-
+```{r}
+# read in the taxonomy file from WFO
+# if this .csv is not in the project directory, run the code chunk above
 WFO.remember("classification.csv")
 
 fuzzy_match <- WFO.match.fuzzyjoin(spec.data = NA_TSN$Scientific_name, WFO.data = WFO.data, fuzzydist.max = 2)
@@ -172,7 +176,11 @@ write_csv(one_to_one, "corrected_taxonomy.csv")
 # Run the updated names through `taxize` to get updates TSN
 one_to_one_TSN <- one_to_one %>% 
   mutate(TSN = get_tsn(one_to_one$scientificName, rows = 1))
+#write_csv(one_to_one_TSN, "one_to_one_TSN.csv")
+```
 
+```{r}
+one_to_one_TSN <- read_csv("one_to_one_TSN.csv")
 
 # Input TSN for remaining NA values
 one_to_one_TSN <- one_to_one_TSN %>% 
@@ -190,15 +198,17 @@ one_to_one_TSN <- one_to_one_TSN %>%
 one_to_one_TSN <- one_to_one_TSN %>% 
   mutate(
     TSN = ifelse(spec.name == "Scutellaria laterifolia", "32765", TSN))
+```
 
-## make it so the spec.name for Rhamnus fragularia and Scutellaria laterifolia appear in the Scientfic_name column
-one_to_one_TSN$Scientific_name[which(one_to_one_TSN$spec.name == "Rhamnus fragularia")] <- "Rhamnus fragularia"
+```{r}
+# Possibly works with the `which()` function once read in from .csv and not when straight from code?
 
-one_to_one_TSN$Scientific_name[which(one_to_one_TSN$spec.name == "Scutellaria laterifolia")] <- "Scutellaria laterifolia"
+## make it so the spec.name for Rhamnus fragularia and Scutellaria laterifolia appear in the scientificName column
+one_to_one_TSN$scientificName[which(one_to_one_TSN$spec.name == "Rhamnus fragularia")] <- "Rhamnus fragularia"
 
-one_to_one_TSN$Scientific_name[which(one_to_one_TSN$TSN == "17675")] <- "Polystichum acrostichoides "
+one_to_one_TSN$scientificName[which(one_to_one_TSN$spec.name == "Scutellaria laterifolia")] <- "Scutellaria laterifolia"
 
-
+one_to_one_TSN$scientificName[which(one_to_one_TSN$TSN == "17675")] <- "Polystichum acrostichoides"
 ```
 
 
@@ -235,6 +245,7 @@ tsn_df <- tsn_df %>%
          Scientific_name = str_trim(Scientific_name))
 one_to_one_TSN <- one_to_one_TSN %>% 
   mutate(spec.name = str_squish(spec.name),
+         spec.name = str_trim(spec.name),
          Scientific_name = str_squish(Scientific_name),
          Scientific_name = str_trim(Scientific_name)) 
 
@@ -251,7 +262,7 @@ for (i in 1:nrow(tsn_df)) {
 }
 
 
-### run this after top for loop is confirmed to work
+### run this after top for loop is confirmed to work; need to deal with a "sp." name
 for (i in 1:nrow(tsn_df)){
   
   if (is.na(tsn_df$TSN[i])){
@@ -268,38 +279,37 @@ for (i in 1:nrow(tsn_df)){
     tsn_df$TSN [i] == tsn_df$TSN [i]
   }
 }
-  
-
-
-i=159
 
 ```
 
+```{r}
+# Write one_to_one_TSN to "corrected_taxonomy.csv"
+# write_csv(one_to_one_TSN, "corrected_taxonomy.csv")
+# OR
+# Read in "corrected_taxonomy.csv"
+Concord_corrected_name <- read_csv("corrected_taxonomy.csv")
+```
 
 ```{r}
-### Use the corrected_taxonomy.csv to with the first phase of mispelled names in the dataset
-Concord_corrected_name <- read.csv("corrected_taxonomy.csv")
-
-
-
 ### Str_squish and Str_Trim will help remove white space, double spaces between words, and make it recognizable by R to match up with the tsn_df
 Concord_long <- Concord_long %>% 
   mutate(Scientific_name = str_squish(Scientific_name),
          Scientific_name = str_trim(Scientific_name))
 Concord_corrected_name <- Concord_corrected_name %>% 
   mutate(spec.name.ORIG = str_squish(spec.name.ORIG),
-         ScientificName = str_squish(scientificName),
+         ScientificName = str_squish(Scientific_name),
          spec.name.ORIG = str_trim(spec.name.ORIG),
-         ScientificName = str_trim(scientificName))
+         ScientificName = str_trim(Scientific_name))
 
 
 ### Fix all misspelled names in Concord_Long using the names within the mispelled dataframe
 
 misspelled <- Concord_corrected_name$spec.name
+
 for (i in 1:nrow(Concord_long)) {
   if (str_trim(Concord_long$Scientific_name[i]) %in% misspelled){
     index <- which(Concord_corrected_name$spec.name.ORIG == str_trim(Concord_long$Scientific_name[i]))
-    Concord_long$Scientific_name[i] <- Concord_corrected_name$scientificName[index]
+    Concord_long$Scientific_name[i] <- Concord_corrected_name$Scientific_name[index]
   } else {
     Concord_long$Scientific_name[i] <- Concord_long$Scientific_name [i]
   }
@@ -319,12 +329,10 @@ Clean_Concord_Data <- full_join(Concord_long, tsn_df)
 ### .CSV that includes the final clean dataset 
 write_csv(Clean_Concord_Data,"Clean_Thoreau_Data.csv")
 
+
+```
+
+```{r}
+# Species with no TSN
 na_clean <- Clean_Concord_Data[is.na(Clean_Concord_Data$TSN), ]
-
 ```
-
-
-```
-
-
-
