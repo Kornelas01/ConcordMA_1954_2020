@@ -9,53 +9,60 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-load tidyverse
+
 ```{r}
 #install.packages("tidyverse")
 library(tidyverse)
 ```
 
-read csv file 
+ 
 ```{r}
+### Read csv file
 Concord_data <- read.csv("Concord_phenology_dataset.csv")
 ```
 
-Remove all unnescary columns before turning the data into long format 
+
 ```{r}
+### Remove all unnecessary columns before turning the data into long format 
 Concord_data <- Concord_data [-c(4,5,6,7,8)]
 ```
 
 
-Turn data into long format
 ```{r}
-# change all data into interegers
+### Turn data into long format (This will make our year its own column)
+# change all data into integers rather than characters
+#in `mutate()`: ℹ In argument: `across(X1845:X2020, as.numeric)`.Caused by warning:! NAs introduced by coercion --- ignore this warning, there are values in the DOY column that are -x- which  indicates a representative decadal value as opposed to an annual observation aka an average
+
 Concord_data <- Concord_data %>%
   mutate(across(X1845:X2020, as.numeric))
 
+
 Concord_long <- Concord_data %>% 
   pivot_longer(
-    cols = 5:125,
+    cols = starts_with("X"),
     names_to = "year",
     values_to = "DOY")
 ```
 
-Take out the X from the year 
+
 ```{r}
+### Take out the X from the year 
 Concord_long$year <-  
   str_remove(
     Concord_long$year, "X")
 ```
 
-remove na in duration and this will also take out our ice out
+
 ```{r}
+### Remove all NA in the data set Concord_long. 
 Concord_long <- 
   Concord_long %>% 
     drop_na()
 ```
 
 
-add column for lat and long 
 ```{r}
+### Add a column for latitude and longitude
 Concord_long <- Concord_long %>%
   mutate(Longitude = "-71.3333333")
 
@@ -64,6 +71,7 @@ Concord_long <- Concord_long %>%
 
 ```
 
+
 ```{r}
 ## Convert DOY to year month date
 Concord_long <- Concord_long %>% mutate(date= as.Date(DOY-1, 
@@ -71,8 +79,11 @@ Concord_long <- Concord_long %>% mutate(date= as.Date(DOY-1,
             
 ```
 
-Create a new test database with only scientfic name to match TSN
+
+
 ```{r}
+### Create a new test database with only scientific name to then find TSN (Taxonomic Scientific Number) for each species
+
 #install.packages("taxize")
 library(taxize)
 
@@ -80,21 +91,47 @@ Concord_long$Scientific_name <- paste(Concord_long$Genus,Concord_long$Species)
 
 Concord_long <-  Concord_long %>% relocate(Scientific_name,.after = Species)
 
+Concord_long$Scientific_name <- str_replace(Concord_long$Scientific_name,"Lysimachia arvensis", "Anagallis arvensis")
+Concord_long$Scientific_name <-str_replace(Concord_long$Scientific_name,"Scorzoneroides autumnalis", "Leontodon autumnalis")
+Concord_long$Scientific_name <-str_replace(Concord_long$Scientific_name,"Nemopanthes mucronata", "Ilex mucronata")
+Concord_long$Scientific_name <-str_replace(Concord_long$Scientific_name,"Muraltia pauciflora", "
+Polygala paucifolia")
+Concord_long$Scientific_name <-str_replace(Concord_long$Scientific_name,"Ailanthus altissima var. altissima", "Ailanthus altissima")
+Concord_long$Scientific_name <-str_replace(Concord_long$Scientific_name,"Athyrium filix-femina subsp. filix-femina", "Athyrium filix-femina")
+Concord_long$Scientific_name <-str_replace(Concord_long$Scientific_name,"Homalosorus pycnocarpos", "Diplazium pycnocarpon")
+Concord_long$Scientific_name <-str_replace(Concord_long$Scientific_name,"Botrychium virginianum subsp. virginianum", "Botrypus virginianus")
+Concord_long$Scientific_name <-str_replace(Concord_long$Scientific_name,"Cystopteris fragilis subsp. fragilis", "Cystopteris fragilis")
+Concord_long$Scientific_name <-str_replace(Concord_long$Scientific_name,"Dryopteris boottii", "Dryopteris X boottii")
+Concord_long$Scientific_name <-str_replace(Concord_long$Scientific_name,"Onoclea pensylvatica", "Matteuccia struthiopteris var. pensylvanica")
+Concord_long$Scientific_name <-str_replace(Concord_long$Scientific_name,"Aspidium vari incisum", "Polystichum acrostichoides")
+
+## make it so the species for Rhamnus fragularia and Scutellaria laterifolia appear in the Scientfic_name column
+Concord_long$Scientific_name[which(Concord_long$Species == "fragularia")] <- "Rhamnus fragularia"
+
+Concord_long$Scientific_name[which(Concord_long$Species == "laterifolia")] <- "Scutellaria laterifolia" 
+```
+
+
+```{r}
 tsn_df <- Concord_long %>%
   distinct(Scientific_name)
 
 tsn_df <- tsn_df %>% 
   mutate(TSN = get_tsn(tsn_df$Scientific_name, rows = 1))
 
+
 ```
 
-Take out the NAs from tsn_df 
+
 ```{r}
+### Take out the NAs from tsn_df  
 NA_TSN <- tsn_df[is.na(tsn_df$TSN), ] 
 ```
 
-Use Fuzzy function in worldflora 
+
 ```{r}
+### Use Fuzzy function in WorldFlora to find the corrected scientific name for any mispelled scientific names
+
 #install.packages("WorldFlora")
 library(WorldFlora)
 
@@ -109,13 +146,10 @@ WFO.remember("classification.csv")
 
 fuzzy_match <- WFO.match.fuzzyjoin(spec.data = NA_TSN$Scientific_name, WFO.data = WFO.data, fuzzydist.max = 2)
 
-# have WFO condense the above dataframe down to one clear match per species
+# Have WFO condense the above data frame down to one clear match per species
 one_to_one <- WFO.one(fuzzy_match)
 
-# save the output so we don't have to run those again because they take up wild amounts of RAM!
-write_csv(one_to_one, "corrected_taxonomy.csv")
-
-#replace scientificName with correct ITIS accepted names to be able to find the TSN
+#Replace scientificName with correct ITIS accepted names to be able to find the TSN
 one_to_one$scientificName <- str_replace(one_to_one$scientificName,"Lysimachia arvensis", "Anagallis arvensis")
 one_to_one$scientificName <-str_replace(one_to_one$scientificName,"Scorzoneroides autumnalis", "Leontodon autumnalis")
 one_to_one$scientificName <-str_replace(one_to_one$scientificName,"Nemopanthes mucronata", "Ilex mucronata")
@@ -129,20 +163,25 @@ one_to_one$scientificName <-str_replace(one_to_one$scientificName,"Cystopteris f
 one_to_one$scientificName <-str_replace(one_to_one$scientificName,"Dryopteris boottii", "Dryopteris X boottii")
 one_to_one$scientificName <-str_replace(one_to_one$scientificName,"Onoclea pensylvatica", "Matteuccia struthiopteris var. pensylvanica")
 
+# Save the output so we don't have to run those again because they take up wild amounts of RAM!
+write_csv(one_to_one, "corrected_taxonomy.csv")
+```
 
-# run the updated names through `taxize` to get updates TSN
+
+```{r}
+# Run the updated names through `taxize` to get updates TSN
 one_to_one_TSN <- one_to_one %>% 
   mutate(TSN = get_tsn(one_to_one$scientificName, rows = 1))
 
 
-# input TSN for remaining NA values
+# Input TSN for remaining NA values
 one_to_one_TSN <- one_to_one_TSN %>% 
   mutate(
     TSN = ifelse(spec.name == "Polygala pauciflora", "29306", TSN))
 
 one_to_one_TSN <- one_to_one_TSN %>% 
   mutate(
-    TSN = ifelse(spec.name == "Aspidium vari incisum", "504531", TSN))
+    TSN = ifelse(spec.name == "Aspidium vari incisum", "17675", TSN))
 
 one_to_one_TSN <- one_to_one_TSN %>% 
   mutate(
@@ -152,24 +191,33 @@ one_to_one_TSN <- one_to_one_TSN %>%
   mutate(
     TSN = ifelse(spec.name == "Scutellaria laterifolia", "32765", TSN))
 
+## make it so the spec.name for Rhamnus fragularia and Scutellaria laterifolia appear in the Scientfic_name column
+one_to_one_TSN$Scientific_name[which(one_to_one_TSN$spec.name == "Rhamnus fragularia")] <- "Rhamnus fragularia"
+
+one_to_one_TSN$Scientific_name[which(one_to_one_TSN$spec.name == "Scutellaria laterifolia")] <- "Scutellaria laterifolia"
+
+one_to_one_TSN$Scientific_name[which(one_to_one_TSN$TSN == "17675")] <- "Polystichum acrostichoides "
 
 
 ```
 
-Rename the scientific_name column in one to one TSN to match tsn_df
+
 ```{r}
+### Rename the scientific_name column in one to one TSN to match tsn_df to help with matching up TSN to the correct species
 colnames(one_to_one_TSN)[colnames(one_to_one_TSN) == 'scientificName'] <- 'Scientific_name'
 ```
 
-Change TSN from chr to numeric
-Relocate positions of columns to match tsn_df
+
 ```{r}
+### Change TSN from character to numeric 
+
 tsn_df <- tsn_df %>% 
-  mutate(TSN = as.numeric(tsn_df$TSN)) 
+  mutate(TSN = as.numeric(TSN)) 
 
 one_to_one_TSN <- one_to_one_TSN %>% 
-  mutate(TSN = as.numeric(one_to_one_TSN$TSN)) 
+  mutate(TSN = as.numeric(TSN)) 
 
+### Relocate positions of columns to match tsn_df
 one_to_one_TSN <-  one_to_one_TSN %>% 
   relocate(Scientific_name, .before = spec.name.ORIG)
 
@@ -177,16 +225,20 @@ one_to_one_TSN <-  one_to_one_TSN %>%
   relocate(TSN, .after = Scientific_name)
 ```
 
-Rename all misspelled Scientific_name in tsn_df to correct name located in one_to_one_TSN
-Replace all NA values in tsn_df with values from one_to_one_TSN
+
 ```{r}
+### Rename all misspelled Scientific_name in tsn_df to correct name located in one_to_one_TSN
+
+
 tsn_df <- tsn_df %>% 
-  mutate(Scientific_name = str_squish(Scientific_name)) %>% 
-  drop_na(Scientific_name)
+  mutate(Scientific_name = str_squish(Scientific_name),
+         Scientific_name = str_trim(Scientific_name))
 one_to_one_TSN <- one_to_one_TSN %>% 
   mutate(spec.name = str_squish(spec.name),
-         Scientific_name = str_squish(Scientific_name))
+         Scientific_name = str_squish(Scientific_name),
+         Scientific_name = str_trim(Scientific_name)) 
 
+## Replace all NA values in tsn_df with values from one_to_one_TSN
 misspelled <- one_to_one_TSN$spec.name
 
 for (i in 1:nrow(tsn_df)) {
@@ -204,7 +256,7 @@ for (i in 1:nrow(tsn_df)){
   
   if (is.na(tsn_df$TSN[i])){
     
-    if (str_detect(tsn_df$Scientific_name[i], "sp.")) {
+    if (str_detect(tsn_df$Scientific_name[i], "sp\\.")) {
       index <- which(one_to_one_TSN$spec.name.ORIG == tsn_df$Scientific_name [i])
       tsn_df$TSN[i] <-  one_to_one_TSN$TSN[index]
     } else {
@@ -223,11 +275,14 @@ i=159
 
 ```
 
-Fix all misspelled names in Concord_Long -- do we fix species and genus 
-```{r}
 
+```{r}
+### Use the corrected_taxonomy.csv to with the first phase of mispelled names in the dataset
 Concord_corrected_name <- read.csv("corrected_taxonomy.csv")
 
+
+
+### Str_squish and Str_Trim will help remove white space, double spaces between words, and make it recognizable by R to match up with the tsn_df
 Concord_long <- Concord_long %>% 
   mutate(Scientific_name = str_squish(Scientific_name),
          Scientific_name = str_trim(Scientific_name))
@@ -236,6 +291,9 @@ Concord_corrected_name <- Concord_corrected_name %>%
          ScientificName = str_squish(scientificName),
          spec.name.ORIG = str_trim(spec.name.ORIG),
          ScientificName = str_trim(scientificName))
+
+
+### Fix all misspelled names in Concord_Long using the names within the mispelled dataframe
 
 misspelled <- Concord_corrected_name$spec.name
 for (i in 1:nrow(Concord_long)) {
@@ -250,13 +308,18 @@ for (i in 1:nrow(Concord_long)) {
 ```
 
 
-Final step
+
 ```{r}
+### Make sure there is one tsn for only one scientific_name
 tsn_df <- tsn_df %>% distinct()
 
+### Full join will match up the scientific names in both dataframes to fill in the missing TSN in Concord_long
 Clean_Concord_Data <- full_join(Concord_long, tsn_df)
 
-write_csv(Clean_Concord_Data,"Clean_Thoreau_Data")
+### .CSV that includes the final clean dataset 
+write_csv(Clean_Concord_Data,"Clean_Thoreau_Data.csv")
+
+na_clean <- Clean_Concord_Data[is.na(Clean_Concord_Data$TSN), ]
 
 ```
 
