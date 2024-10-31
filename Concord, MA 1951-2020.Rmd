@@ -22,10 +22,10 @@ if (!requireNamespace("remotes", quietly = TRUE)) {
 }
 
 # Install specific versions of packages
-remotes::install_version("tidyverse", version = "2.0.0")
-remotes::install_version("taxize", version = "0.9.99")
-remotes::install_version("fuzzyjoin", version = "0.1.6")
-remotes::install_version("WorldFlora", version = "1.14-5")
+# remotes::install_version("tidyverse", version = "2.0.0")
+# remotes::install_version("taxize", version = "0.9.99")
+# remotes::install_version("fuzzyjoin", version = "0.1.6")
+# remotes::install_version("WorldFlora", version = "1.14-5")
 
 # Load those packages
 packages <- c("tidyverse", "WorldFlora", "taxize", "fuzzyjoin")
@@ -179,21 +179,24 @@ Some of the names just have to be corrected manually.
 
 ```{r}
 #Replace scientificName with correct ITIS accepted names to be able to find the TSN
-one_to_one$scientificName <- str_replace(one_to_one$scientificName,"Lysimachia arvensis", "Anagallis arvensis")
-one_to_one$scientificName <-str_replace(one_to_one$scientificName,"Scorzoneroides autumnalis", "Leontodon autumnalis")
-one_to_one$scientificName <-str_replace(one_to_one$scientificName,"Nemopanthes mucronata", "Ilex mucronata")
-one_to_one$scientificName <-str_replace(one_to_one$scientificName,"Muraltia pauciflora", "
-Polygala paucifolia")
-one_to_one$scientificName <-str_replace(one_to_one$scientificName,"Ailanthus altissima var. altissima", "Ailanthus altissima")
-one_to_one$scientificName <-str_replace(one_to_one$scientificName,"Athyrium filix-femina subsp. filix-femina", "Athyrium filix-femina")
-one_to_one$scientificName <-str_replace(one_to_one$scientificName,"Homalosorus pycnocarpos", "Diplazium pycnocarpon")
-one_to_one$scientificName <-str_replace(one_to_one$scientificName,"Botrychium virginianum subsp. virginianum", "Botrypus virginianus")
-one_to_one$scientificName <-str_replace(one_to_one$scientificName,"Cystopteris fragilis subsp. fragilis", "Cystopteris fragilis")
-one_to_one$scientificName <-str_replace(one_to_one$scientificName,"Dryopteris boottii", "Dryopteris X boottii")
-one_to_one$scientificName <-str_replace(one_to_one$scientificName,"Onoclea pensylvatica", "Matteuccia struthiopteris var. pensylvanica")
-one_to_one$scientificName <-  str_replace(one_to_one$scientificName, "Raphanus raphanistrum subsp. sativus", "Raphanus sativus")
-one_to_one$scientificName <-  str_replace(one_to_one$scientificName, "Ampelopsis glandulosa var. brevipedunculata", "Ampelopsis brevipedunculata")
-one_to_one$scientificName <-  str_replace(one_to_one$scientificName, "Nabalus autumnalis", "Prenanthes autumnalis")
+
+one_to_one <- one_to_one %>% 
+  mutate(scientificName = case_when(scientificName == "Lysimachia arvensis" ~ "Anagallis arvensis",
+                                    scientificName == "Scorzoneroides autumnalis" ~ "Leontodon autumnalis",
+                                    scientificName == "Nemopanthes mucronata" ~ "Ilex mucronata",
+                                    scientificName == "Muraltia pauciflora" ~ "Polygala paucifolia",
+                                    scientificName == "Ailanthus altissima var. altissima" ~ "Ailanthus altissima",
+                                    scientificName == "Athyrium filix-femina subsp. filix-femina" ~ "Athyrium filix-femina",
+                                    scientificName == "Homalosorus pycnocarpos" ~ "Diplazium pycnocarpon",
+                                    scientificName == "Botrychium virginianum subsp. virginianum" ~ "Botrypus virginianus",
+                                    scientificName == "Cystopteris fragilis subsp. fragilis" ~ "Cystopteris fragilis",
+                                    scientificName == "Dryopteris boottii" ~ "Dryopteris X boottii",
+                                    scientificName == "Onoclea pensylvatica" ~ "Matteuccia struthiopteris var. pensylvanica",
+                                    scientificName == "Raphanus raphanistrum subsp. sativus" ~ "Raphanus sativus",
+                                    scientificName == "Ampelopsis glandulosa var. brevipedunculata" ~ "Ampelopsis brevipedunculata",
+                                    scientificName == "Prenanthes virgatum" ~ "Prenanthes autumnalis",
+                                    scientificName == "Nabalus autumnalis" ~ "Prenanthes autumnalis",
+                                    TRUE ~ scientificName))
 ```
 
 We now run the correctly spelled names of the species through the `get_tsn` function to get their TSNs.
@@ -226,6 +229,8 @@ one_to_one_TSN$scientificName[which(one_to_one_TSN$spec.name == "Rhamnus fragula
 one_to_one_TSN$scientificName[which(one_to_one_TSN$spec.name == "Scutellaria laterifolia")] <- "Scutellaria laterifolia"
 
 one_to_one_TSN$scientificName[which(one_to_one_TSN$spec.name == "Raphanus sativus")] <- "Raphanus sativus"
+
+one_to_one_TSN$scientificName[which(one_to_one_TSN$spec.name == "Tabacum longiflorum")] <- "Tabacum longiflorum"
 
 one_to_one_TSN$scientificName[which(one_to_one_TSN$TSN == "17675")] <- "Polystichum acrostichoides"
 ```
