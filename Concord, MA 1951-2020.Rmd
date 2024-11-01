@@ -363,6 +363,7 @@ for (i in 1:nrow(Concord_long)) {
 
 ```
 
+Save the cleaned data!
 ```{r}
 ### Make sure there is one tsn for only one scientific_name
 tsn_df <- tsn_df %>% distinct()
@@ -370,13 +371,10 @@ tsn_df <- tsn_df %>% distinct()
 ### Full join will match up the scientific names in both dataframes to fill in the missing TSN in Concord_long
 Clean_Concord_Data <- full_join(Concord_long, tsn_df)
 
-### .CSV that includes the final clean dataset 
-write_csv(Clean_Concord_Data,"Clean_Thoreau_Data.csv")
-
-
-```
-
-```{r}
 # Species with no TSN
 na_clean <- Clean_Concord_Data[is.na(Clean_Concord_Data$TSN), ]
+
+### .CSV that includes the final clean dataset 
+write_csv(Clean_Concord_Data,"data_clean/Clean_Thoreau_Data.csv")
+
 ```
