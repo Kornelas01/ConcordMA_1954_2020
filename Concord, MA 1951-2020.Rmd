@@ -48,7 +48,7 @@ Concord_data <- Concord_data [-c(4,5,6,7,8)]
 
 The data are currently in a wide format. We want them to be in a long format with one column for the year and one column for the day of year.
 
-```{r}
+```{r message=FALSE}
 ### Turn data into long format (This will make our year its own column)
 # change all data into integers rather than characters
 #in `mutate()`: ℹ In argument: `across(X1845:X2020, as.numeric)`.Caused by warning:! NAs introduced by coercion --- ignore this warning, there are values in the DOY column that are -x- which  indicates a representative decadal value as opposed to an annual observation aka an average
@@ -192,11 +192,13 @@ one_to_one <- one_to_one %>%
                                     scientificName == "Cystopteris fragilis subsp. fragilis" ~ "Cystopteris fragilis",
                                     scientificName == "Dryopteris boottii" ~ "Dryopteris X boottii",
                                     scientificName == "Onoclea pensylvatica" ~ "Matteuccia struthiopteris var. pensylvanica",
-                                    scientificName == "Raphanus raphanistrum subsp. sativus" ~ "Raphanus sativus",
-                                    scientificName == "Ampelopsis glandulosa var. brevipedunculata" ~ "Ampelopsis brevipedunculata",
-                                    scientificName == "Prenanthes virgatum" ~ "Prenanthes autumnalis",
-                                    scientificName == "Nabalus autumnalis" ~ "Prenanthes autumnalis",
                                     TRUE ~ scientificName))
+                                    
+                                    # scientificName == "Raphanus raphanistrum subsp. sativus" ~ "Raphanus sativus",
+                                    # scientificName == "Ampelopsis glandulosa var. brevipedunculata" ~ "Ampelopsis brevipedunculata",
+                                    # scientificName == "Prenanthes virgatum" ~ "Prenanthes autumnalis",
+                                    # scientificName == "Nabalus autumnalis" ~ "Prenanthes autumnalis",
+                                    # TRUE ~ scientificName))
 ```
 
 We now run the correctly spelled names of the species through the `get_tsn` function to get their TSNs.
@@ -211,15 +213,24 @@ write_csv(one_to_one_TSN, "data_intermediate/one_to_one_TSN.csv")
 Again, some have to be changed manually.
 
 ```{r}
-# one_to_one_TSN <- read_csv("data_intermediate/one_to_one_TSN.csv")
+#one_to_one_TSN <- read_csv("data_intermediate/one_to_one_TSN.csv")
 
 # Input TSN for remaining NA values
 one_to_one_TSN <- one_to_one_TSN %>% 
-  mutate(TSN = case_when(spec.name == "Polygala pauciflora" ~ "29306",
-                         spec.name == "Aspidium vari incisum" ~ "17675",
-                         spec.name == "Rhamnus fragularia" ~ "28579",
-                         spec.name == "Scutellaria laterifolia" ~ "32765",
-                         spec.name == "Raphanus sativus" ~ "23290"))
+  mutate(
+    TSN = ifelse(spec.name == "Polygala pauciflora", "29306", TSN))
+
+one_to_one_TSN <- one_to_one_TSN %>% 
+  mutate(
+    TSN = ifelse(spec.name == "Aspidium vari incisum", "17675", TSN))
+
+one_to_one_TSN <- one_to_one_TSN %>% 
+  mutate(
+    TSN = ifelse(spec.name == "Rhamnus fragularia", "28579", TSN))
+
+one_to_one_TSN <- one_to_one_TSN %>% 
+  mutate(
+    TSN = ifelse(spec.name == "Scutellaria laterifolia", "32765", TSN))
 ```
 
 ```{r}
@@ -229,8 +240,6 @@ one_to_one_TSN$scientificName[which(one_to_one_TSN$spec.name == "Rhamnus fragula
 one_to_one_TSN$scientificName[which(one_to_one_TSN$spec.name == "Scutellaria laterifolia")] <- "Scutellaria laterifolia"
 
 one_to_one_TSN$scientificName[which(one_to_one_TSN$spec.name == "Raphanus sativus")] <- "Raphanus sativus"
-
-one_to_one_TSN$scientificName[which(one_to_one_TSN$spec.name == "Tabacum longiflorum")] <- "Tabacum longiflorum"
 
 one_to_one_TSN$scientificName[which(one_to_one_TSN$TSN == "17675")] <- "Polystichum acrostichoides"
 ```
@@ -294,8 +303,6 @@ Now that all of the names in the `tsn_df` dataframe are corrected, we can replac
 ```{r}
 ## Replace all NA values in tsn_df with values from one_to_one_TSN
 
-
-
 for (i in 1:nrow(tsn_df)){
   
   if (is.na(tsn_df$TSN[i])){
@@ -356,6 +363,7 @@ for (i in 1:nrow(Concord_long)) {
 
 ```
 
+Save the cleaned data!
 ```{r}
 ### Make sure there is one tsn for only one scientific_name
 tsn_df <- tsn_df %>% distinct()
@@ -363,13 +371,10 @@ tsn_df <- tsn_df %>% distinct()
 ### Full join will match up the scientific names in both dataframes to fill in the missing TSN in Concord_long
 Clean_Concord_Data <- full_join(Concord_long, tsn_df)
 
-### .CSV that includes the final clean dataset 
-write_csv(Clean_Concord_Data,"Clean_Thoreau_Data.csv")
-
-
-```
-
-```{r}
 # Species with no TSN
 na_clean <- Clean_Concord_Data[is.na(Clean_Concord_Data$TSN), ]
+
+### .CSV that includes the final clean dataset 
+write_csv(Clean_Concord_Data,"data_clean/Clean_Thoreau_Data.csv")
+
 ```
