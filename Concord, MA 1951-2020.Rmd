@@ -110,7 +110,7 @@ Concord_long <-  Concord_long %>% relocate(Scientific_name,.after = Species)
 ```
 
 ```{r}
-# some of the species names need to be replaced (ITIS?)
+# some of the species names need to be replaced (accepted ITIS names)
 Concord_long$Scientific_name <- str_replace(Concord_long$Scientific_name,"Lysimachia arvensis", "Anagallis arvensis")
 Concord_long$Scientific_name <-str_replace(Concord_long$Scientific_name,"Scorzoneroides autumnalis", "Leontodon autumnalis")
 Concord_long$Scientific_name <-str_replace(Concord_long$Scientific_name,"Nemopanthes mucronata", "Ilex mucronata")
@@ -125,7 +125,7 @@ Concord_long$Scientific_name <-str_replace(Concord_long$Scientific_name,"Dryopte
 Concord_long$Scientific_name <-str_replace(Concord_long$Scientific_name,"Onoclea pensylvatica", "Matteuccia struthiopteris var. pensylvanica")
 Concord_long$Scientific_name <-str_replace(Concord_long$Scientific_name,"Aspidium vari incisum", "Polystichum acrostichoides")
 
-## make it so the species for Rhamnus fragularia and Scutellaria laterifolia appear in the Scientfic_name column
+## make it so the species for Rhamnus fragularia and Scutellaria laterifolia appear in the Scientific_name column
 Concord_long$Scientific_name[which(Concord_long$Species == "fragularia")] <- "Rhamnus fragularia"
 
 Concord_long$Scientific_name[which(Concord_long$Species == "laterifolia")] <- "Scutellaria laterifolia" 
